@@ -21,8 +21,11 @@ import BN = require('bn.js');
 import {Common, PromiEvent, provider, hardfork, chain, BlockNumber, PastLogsOptions, LogsOptions} from 'web3-core';
 import {AbiItem} from 'web3-utils';
 
-// TODO: Add generic type!
-export class Contract {
+type AnyFunction = (...args: any) => any;
+type InputType<T> = { [Prop in keyof T]: AnyFunction }
+type NewReturnType<F extends AnyFunction, T> = (...args: Parameters<F>) => T;
+
+export class Contract<T extends InputType<T> = any> {
     constructor(
         jsonInterface: AbiItem[],
         address?: string,
@@ -43,11 +46,16 @@ export class Contract {
 
     options: Options;
 
-    clone(): Contract;
+    clone(): Contract<T>;
 
-    deploy(options: DeployOptions): ContractSendMethod;
+    deploy(options: DeployOptions): ContractSendMethod<T, any>;
 
-    methods: any;
+    methods: {
+        [Method in keyof T]: NewReturnType<
+            T[Method],
+            ContractSendMethod<T, ReturnType<T[Method]>>
+        >
+    }
 
     once(
         event: string,
@@ -84,16 +92,16 @@ export interface DeployOptions {
     arguments?: any[];
 }
 
-export interface ContractSendMethod {
+export interface ContractSendMethod<T extends InputType<T>, RT> {
     send(
         options: SendOptions,
         callback?: (err: Error, transactionHash: string) => void
-    ): PromiEvent<Contract>;
+    ): PromiEvent<Contract<T>>;
 
     call(
         options?: CallOptions,
         callback?: (err: Error, result: any) => void
-    ): Promise<any>;
+    ): Promise<RT>;
 
     estimateGas(
         options: EstimateGasOptions,
